@@ -1,2 +1,8 @@
 .idea
 example_data/
+
+# Python packaging outputs
+build/
+dist/
+*.egg-info/
+__pycache__/

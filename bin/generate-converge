@@ -1,13 +1,13 @@
 #!/bin/bash
 # vaspup2.0 - Seán Kavanagh (sean.kavanagh.19@ucl.ac.uk), 2023
+# Modified for Archer2 to fit SLURM
 # Check all needed files exist
-
 [ ! -f input/CONFIG ] && echo "CONFIG file not found in ./input/ directory" && exit
 [ ! -f input/INCAR ] && echo "INCAR file not found in ./input/ directory" && exit
 [ ! -f input/POTCAR ] && echo "POTCAR file not found in ./input/ directory" && exit
 [ ! -f input/KPOINTS ] && echo "KPOINTS file not found in ./input/ directory" && exit
 [ ! -f input/POSCAR ] && echo "POSCAR file not found in ./input/ directory" && exit
-[ ! -f input/job ] && echo "job file not found in ./input/ directory\njob submission will not work\nwill continue and make calculation directories without job submission\nrun_vasp in your input/CONFIG file should be 0..."
+[ ! -f input/job ] && echo -e "job file not found in ./input/ directory\njob submission will not work\nwill continue and make calculation directories without job submission\nset run_vasp=0 in your input/CONFIG file..."
 [ -f input/vdw_kernel.bindat ] && echo "vdw_kernel.bindat present in ./input/ directory, will also copy this into each calculation directory"
 
 # Read CONFIG file to get parameters
@@ -15,26 +15,25 @@ source input/CONFIG
 
 # Converge ENCUT
 if [ "$conv_encut" -eq "1" ]; then
-  mkdir cutoff_converge
+  mkdir -p cutoff_converge
   cd cutoff_converge
-  for i in $(eval echo "{$encut_start..$encut_end..$encut_step}"); do
+  for i in $(seq $encut_start $encut_step $encut_end); do
     if [ "$i" -gt 999 ]; then
-    dirname="e_$i" # Add underscore to ensure correct ordering for data-converge
+      dirname="e_$i" # Add underscore to ensure correct ordering for data-converge
     else
-    dirname="e$i"
+      dirname="e$i"
     fi
-    mkdir "$dirname"
+    mkdir -p "$dirname"
     cd "$dirname"
-    cp ../../input/KPOINTS .
-    cp ../../input/INCAR .
-    cp ../../input/POTCAR .
-    cp ../../input/POSCAR .
+    cp ../../input/{KPOINTS,INCAR,POTCAR,POSCAR} .
     [ -f ../../input/vdw_kernel.bindat ] && cp ../../input/vdw_kernel.bindat .
-    sed -i "s/ENMAX .*$/ENMAX  = $i eV/g" INCAR
-    sed -i "s/ENCUT .*$/ENCUT  = $i eV/g" INCAR
+    sed -i "s/ENMAX.*$/ENMAX = $i eV/g" INCAR
+    sed -i "s/ENCUT.*$/ENCUT = $i eV/g" INCAR
     [ -f ../../input/job ] && cp ../../input/job .
 
-    [ "$run_vasp" -eq "1" ] && qsub -N e${i}_${name} job
+    if [ "$run_vasp" -eq "1" ]; then
+      sbatch --job-name=e${i}_${name} job
+    fi
     cd ..
   done
   cd ..
@@ -42,33 +41,31 @@ fi
 
 # Converge k-points
 if [ "$conv_kpoint" -eq "1" ]; then
-  mkdir "kpoint_converge"
+  mkdir -p "kpoint_converge"
   cd "kpoint_converge"
-  n=1;
+  n=1
 
   IFS=',' read -ra ADDR <<< "$kpoints" # Split the kpoints by comma
   for i in "${ADDR[@]}"; do
-    firstk=$(echo $i | head -n1 | awk '{print $1;}')
+    firstk=$(echo $i | awk '{print $1;}')
     sub=${i//[ ]/,}
     if [ "$firstk" -gt 19 ]; then
-    sub="__$sub" # Add double underscore for >19 to ensure correct ordering for data-converge
-
+      sub="__$sub" # Add double underscore for >19 to ensure correct ordering for data-converge
     elif [ "$firstk" -gt 9 ]; then
-    sub="_$sub" # Add underscore for >9 to ensure correct ordering for data-converge
+      sub="_$sub" # Add underscore for >9 to ensure correct ordering for data-converge
     fi
 
-    mkdir "k$sub"
+    mkdir -p "k$sub"
     cd "k$sub"
-    cp ../../input/KPOINTS .
-    cp ../../input/INCAR .
-    cp ../../input/POTCAR .
-    cp ../../input/POSCAR .
+    cp ../../input/{KPOINTS,INCAR,POTCAR,POSCAR} .
     [ -f ../../input/job ] && cp ../../input/job .
     [ -f ../../input/vdw_kernel.bindat ] && cp ../../input/vdw_kernel.bindat .
 
     sed -i "4s/.*/${i}/" KPOINTS
     
-    [ "$run_vasp" -eq "1" ] && qsub -N k${sub//,/_}_${name} job
+    if [ "$run_vasp" -eq "1" ]; then
+      sbatch --job-name=k${sub//,/_}_${name} job
+    fi
     let n=n+1
     cd ..
   done

@@ -306,3 +306,20 @@ S. R. Kavanagh, vaspup2.0 Zenodo DOI: 10.5281/zenodo.8408542 2023.
 ## Disclaimer
 
 This program is not affiliated with VASP. This program is made available under the MIT License; you are free to modify and use the code, but do so at your own risk.
+
+
+## Reproducible installation
+
+This preservation branch contains the scripts used on ARCHER2 on 15 October 2026.
+Install with `python -m pip install .`, or use a Git URL pinned to this branch's
+full commit SHA in a Conda environment YAML. Scripts and their helper files are
+installed together under the environment prefix; no source-checkout PATH edits
+are needed. GNU/Linux, Bash and standard GNU command-line utilities are required;
+`bc` is needed for numerical post-processing. VASP, licensed pseudopotentials and
+the scheduler are supplied separately by the destination HPC.
+
+The local Slurm `sbatch` customization in `generate-converge` is
+preserved. Other scripts retain their original scheduler assumptions.
+All commands keep their original names and are also available through
+`vaspup2 <command>` and `vaspup2-<command>`. The Perl interpreter is required
+for `checkforce`; `kgrid-series` is required for `kgs_gen_kpts`.
